@@ -1,0 +1,4 @@
+../src/grm.py -v
+gcc -std=c99 -Wall -DUNITY_INCLUDE_CONFIG_H -I../unity -I../src ../unity/unity.c test_two.c testOne.c grm_runner.c -o ex
+./ex
+
