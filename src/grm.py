@@ -153,8 +153,7 @@ def parse_source_line(ln):
 	  \s*$		# Whitespace only.
 	''', ln, re.X | re.S):
 		macro, raw_args = m.groups()
-		args = [x.strip() for x in raw_args.split(',')]
-		return macro, args
+		return macro, raw_args
 
 	# Grab test files...
 	elif m := reTestFunction.search(ln):
@@ -182,19 +181,11 @@ for fn in input_files:
 	test_run.append(f'UnitySetTestFile("{fn}");')
 
 	for lineno, ln in enumerate(src.splitlines()): # Iterate over all lines.
-		print(parse_source_line(ln))
-		m = re.match(r'''
-		  \s*		# Leading whitespace.
-		  (TT_BEGIN_FIXTURE|TT_END_FIXTURE|TT_TEST_CASE|TT_IGNORE_FROM_HERE|TT_BEGIN_INCLUDE|TT_END_INCLUDE|TT_BEGIN_SCRIPT|TT_END_SCRIPT)
-		  \s*\(		# Space + open bracket.
-		  (.*)		# Args.
-		  \)		# Closing bracket.
-		  ;?		# Trailing `;' ignored.
-		  \s*$		# Whitespace only.
-		''', ln, re.X | re.S)
-		if m:
-			macro, raw_args = m.groups()
-			args = [x.strip() for x in raw_args.split(',')]
+		p, q = parse_source_line(ln)
+		
+		if p.startswith(MACRO_PREFIX):
+			macro, raw_args = p, q
+			args = [x.strip() for x in q.split(',')]
 
 			if macro == 'TT_IGNORE_FROM_HERE': # Ignore the rest of this file.
 				message(f" ignoring after line {lineno}...", end='')
@@ -218,7 +209,7 @@ for fn in input_files:
 				test_case_data = []
 			elif macro == 'TT_BEGIN_FIXTURE': # Three options: (setUp(, (setUp, dumpContext), (setUp, dumpContext)
 				if len(args) not in range(1,4):
-					exit(f"Macro {macro}, {fn}, line {lineno} requires 1 or 2 arguments.")
+					exit(f"Macro {macro}, {fn}, line {lineno} requires 1 or 2 or 3 arguments.")
 				fixture = (args + ['NULL'] * 2)[:3]
 				test_run.append('registerFixture({0});'.format(', '.join(fixture)))
 				for f in fixture:
@@ -230,30 +221,31 @@ for fn in input_files:
 			elif macro == 'TT_TEST_CASE':
 				m = re.match(r'(\w+)\((.+)\)\s*$', raw_args)
 				if not m:
-					exit(f"Macro `{ln}' needs to be like {macro}(func(args))")
+					exit(f"Macro at `{ln}' needs to be like {macro}(func(args))")
 				test_func, test_args = m.groups()
 				add_test_case(test_func, test_args)
 			else:
 				message(f" Unknown macro {macro}.")
+		elif p == 'test-func':
+			# Test function...
+
+			test_func, test_args = q
+			if test_func in test_funcs:
+				exit(f"Duplicate test function {test_func}, {fn}, {lineno}.")
+
+			# Looks like a test function definition: void f(void), so call it.
+			if test_args in ('', 'void'):
+				add_test(test_func, test_func, lineno)
+
+			# Add to list to generate a declaration.
+			test_funcs[test_func] = test_args
+			num_tests += 1
+		elif p == 'line':		# Not a test file...
+			if line_proc:
+				line_proc(ln)
 		else:
-			# Grab test files...
-			m = reTestFunction.search(ln)
-			if m:
-				test_func, test_args = m.groups()
-				if test_func in test_funcs:
-					exit(f"Duplicate test function {test_func}, {fn}, {lineno}.")
-
-				# Looks like a test function definition: void f(void), so call it.
-				if test_args in ('', 'void'):
-					add_test(test_func, test_func, lineno)
-
-				# Add to list to generate a declaration.
-				test_funcs[test_func] = test_args
-				num_tests += 1
-			else:		# Not a test file...
-				if line_proc:
-					line_proc(ln)
-
+			exit("Internal error at {ln}: [{p}, {q}].")
+			
 	message(f" found {num_tests} test{'s' if num_tests != 1 else ''}.")
 	if fixture:
 		test_run.append('registerFixture(NULL, NULL, NULL);')
