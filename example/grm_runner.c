@@ -12,6 +12,7 @@
 
 #include "unity.h"
 
+
 /*** Stuff copied from test files (should be #include's, declarations & macros only) ***/
 #include "testOne.h"
 
@@ -27,6 +28,7 @@ void test_teardown();
 void test_1f(int x);
 void test_none_2_a();
 void test_none_2_b();
+void testScript(int x);
 
 /*** Fixture & dump functions from test files. ***/
 void dumpOne(void);
@@ -34,6 +36,9 @@ void dumpOne(void);
 /* Declare test stubs. */
 static void test_1f_stub_0(void) { test_1f(0); }
 static void test_1f_stub_1(void) { test_1f(1); }
+static void testScript_stub_2(void) { testScript(0); }
+static void testScript_stub_3(void) { testScript(1); }
+static void testScript_stub_4(void) { testScript(2); }
 
 /*** Extra Unity support. ***/
 
@@ -85,6 +90,9 @@ int main(int argc, char** argv) {
   UnitySetTestFile("test_two.c");
   do_run_test(test_none_2_a, "test_none_2_a", 3);
   do_run_test(test_none_2_b, "test_none_2_b", 4);
+  do_run_test(testScript_stub_2, "testScript(0)", 19);
+  do_run_test(testScript_stub_3, "testScript(1)", 19);
+  do_run_test(testScript_stub_4, "testScript(2)", 19);
 
   return UnityEnd();
 }
